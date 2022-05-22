@@ -33,6 +33,32 @@ module.exports = ({ config: { mysql } }) => {
         error => { return { errID: 'BLMY002', error } }
     )
 
+    mysql.safeExecProcecure = (procedure, params) => mysql._connect().then(
+        conn => new Promise((resolve, reject) => {
+            conn.query('CALL GET_PROCEDURE(?)', [procedure], (error, result) => {
+                if (error) { 
+                    return reject({ errID: 'BLMY007', error })
+                }
+
+                const ProcedureParams = result.length === 2 ? result[0] : result.slice(0, -1)
+
+                const p = ProcedureParams.map(param => params[params.PARAMETER_NAME] ?? null)
+
+                const query =  `CALL ${procedure} (${", ?".repeat(p.length).substring(2)})`
+
+                conn.query(query, p, (error, result) => {
+                    if (error) {
+                        return reject({ errID: 'BLMY009', error })
+                    }
+
+                    resolve(result.length === 2 ? result[0] : result.slice(0, -1))
+                })
+                    
+            })
+        }),
+        error => { return { errID: 'BLMY008', error } }
+    )
+
     mysql.execProcecure = (procedure, params) => mysql._connect().then(
         conn => new Promise((resolve, reject) => {
             const query =  `CALL ${procedure} (${", ?".repeat(params.length).substring(2)})`
